@@ -14,7 +14,7 @@ import Compiler
 -- Datatype for information that's stored on the CES stack
 -- This makes accessing and manipulating stack data much easier
 data StackElement =
-    MClos (Prog,[String])  --closure case
+    MClos (Prog,[Int])  --closure case
   | MVal Int
   | MTrue | MFalse
   | MNil
@@ -23,7 +23,7 @@ data StackElement =
 
 -- State monad is run with the following type for the CES:
 -- Remember that Prog := [SECDInstruction]
-type CES = (Prog, [String], [StackElement])
+type CES = (Prog, [Int], [StackElement])
 
 popInst :: CES -> CES
 popInst (c:cs,env,st) = (cs,env,st)
@@ -158,14 +158,14 @@ instApplication :: State CES Int
 instApplication = do
   state <- get
   let (c, env, MClos (c', env'):MVal v:st) = state
-  put (c', show v : env', MClos (c, env) : st)
+  put (c', v:env', MClos (c, env) : st)
   return 0
 
 instAccess :: Int -> State CES Int
 instAccess n = do
   state <- get
   let (c, env, st) = state
-  let v = read (env!!n) :: Int -- get the nth element of env and turn it from a String to an Int
+  let v = (env!!n) :: Int -- get the nth element of env and turn it from a String to an Int
   put (c, env, MVal v:st)       --  then wrap that Int in a Val type constructor
   return 0
 
@@ -183,28 +183,28 @@ instConst :: Int -> State CES Int
 instConst k = do
   state <- get
   let (c, env, st) = state
-  put (c, env, MVal k : st) --show converts k from Int to String
+  put (popInst (c, env, MVal k : st)) --show converts k from Int to String
   return 0
 
 instAdd :: State CES Int
 instAdd = do
   state <- get
   let (c, env, MVal s1 : MVal s2 : st) = state
-  put (c, env, MVal(s1+s2):st)  -- both top items are combined
+  put (popInst (c, env, MVal(s1+s2):st))  -- both top items are combined
   return 0
 
 instSub :: State CES Int
 instSub = do
   state <- get
   let (c, env, MVal s1 : MVal s2 : st) = state
-  put (c, env, MVal(s1-s2):st)
+  put (popInst (c, env, MVal(s1-s2):st))
   return 0
 
 instMul :: State CES Int
 instMul = do
   state <- get
   let (c, env, MVal s1 : MVal s2 : st) = state
-  put (c, env, MVal (s1*s2):st)   --same as above
+  put (popInst (c, env, MVal (s1*s2):st))   --same as above
   return 0
 
 instLeq :: State CES Int
@@ -212,8 +212,8 @@ instLeq = do
   state <- get
   let (c, env, MVal s1:MVal s2:st) = state
   if s1 <= s2
-    then put (c, env, MTrue : st)
-    else put (c, env, MFalse : st)
+    then put (popInst (c, env, MTrue : st))
+    else put (popInst (c, env, MFalse : st))
   return 0
 
 ---------------------------------------
@@ -223,26 +223,26 @@ instTrue :: State CES Int
 instTrue = do
   state <- get
   let (c, env, st) = state
-  put (c, env, MTrue:st)
+  put (popInst (c, env, MTrue:st))
   return 0
 
 instFalse :: State CES Int
 instFalse = do
   state <- get
   let (c, env, st) = state
-  put (c, env, MFalse:st)
+  put (popInst (c, env, MFalse:st))
   return 0
 
 --the actual snippets of code are passed in as arguments for simplicity; parsing was getting weird otherwise
 instIf :: (Prog, Prog) -> State CES Int
 instIf (c0,c1) = do
   state <- get
-  let (c, env, toEval:st) = state
+  let (c:cs, env, toEval:st) = state
   if toEval == MTrue then do
-    put (c0, env, MClos(c,env):st)
+    put (c0, env, MClos(cs,env):st)
     return 0
   else if toEval == MFalse then do
-    put (c1, env, MClos(c,env):st)
+    put (c1, env, MClos(cs,env):st)
     return 0
   else return (-1)
 
@@ -261,20 +261,20 @@ instCons :: State CES Int
 instCons = do
   state <- get
   let (c, env, v1:v2:st) = state
-  put (c, env, MCons(v1,v2):st)
+  put (popInst (c, env, MCons(v1,v2):st))
   return 0
 
 --TODO pattern matching nonsense prevented me from having a fail-case
 instCase :: (Prog, Prog) -> State CES Int
 instCase (c1,c2) = do
   state <- get
-  let (c, env, toEval:st) = state
+  let (c:cs, env, toEval:st) = state
   if toEval == MNil then do
-    put (c2, env, MClos(c,env):st)
+    put (c2, env, MClos(cs,env):st)
     return 0
   else do
-    let MCons(v1,v2) = toEval
-    put (c1, show v1:show v2:env, MClos(c,env):st) --TODO ensure show works here; going from StackElement -> String
+    let MCons(MVal v1, MVal v2) = toEval
+    put (c1, v1:v2:env, MClos(cs,env):st) --TODO ensure show works here; going from StackElement -> String
     return 0
 
 ---------------------------------------
