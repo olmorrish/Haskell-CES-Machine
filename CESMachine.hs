@@ -59,6 +59,7 @@ getFixedPoint = do
     then return 0
   else getFixedPoint
 
+-- the step function DOES NOT pop the instruction; this varies by instruction
 step :: State CES Int
 step = do
   state <- get
@@ -133,6 +134,7 @@ inFinalState :: CES -> Bool
 inFinalState state =
   let (c, env, _) = state
    in (null c && null env)
+
 
 
 
