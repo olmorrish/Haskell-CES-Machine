@@ -20,33 +20,57 @@ runAllInstructionTests =
 -------------------------------------
 
 runAllMainTests :: String
-runAllMainTests = unlines ([""] ++ [">> MAIN TESTS <<"] ++ [testInstClosure_1] ++ [testInstClosure_2])
+runAllMainTests = unlines ([""] ++ [">> MAIN TESTS <<"] ++ [testInstClosure_1] ++ [testInstClosure_2]
+  ++ [testInstApp_1] ++ [testInstApp_2] ++ [testInstAccess_1] ++ [testInstAccess_2]
+  ++ [testInstRet_1] ++ [testInstRet_2])
 
 testInstClosure_1 :: String
-testInstClosure_1 = "undefined" -- TODO
---let x = execState instClosure ([NIL],["abc"],[]) in
---  if x == ([NIL],[],[])
+testInstClosure_1 = let x = execState step ([CLO [CONST 1]],[2,3],[]) in
+  if x==([],[2,3],[MClos([CONST 1],[2,3])])
+    then "CLOSURE 1 PASS " ++ show x
+  else "CLOSURE 1 FAIL " ++ show x
 
 testInstClosure_2 :: String
-testInstClosure_2 = "undefined" --TODO
+testInstClosure_2 = let x = execState step ([CLO [CONST 1, FALSE], NIL, TRUE],[2,3],[]) in
+  if x==([NIL, TRUE],[2,3],[MClos([CONST 1, FALSE],[2,3])])
+    then "CLOSURE 2 PASS " ++ show x
+  else "CLOSURE 2 FAIL " ++ show x
 
 testInstApp_1 :: String
-testInstApp_1 = undefined --TODO
+testInstApp_1 = let x = execState step ([APP],[1,2,3],[MClos([CONST 7], [4,5,6]), MVal 8]) in
+  if x==([CONST 7],[8,4,5,6],[MClos([],[1,2,3])])
+    then "ACCESS 1 PASS " ++ show x
+  else "ACCESS 1 FAIL " ++ show x
 
 testInstApp_2 :: String
-testInstApp_2 = undefined --TODO
+testInstApp_2 = let x = execState step ([APP],[1,2,3],[MClos([FALSE, CONST 7], [4,5,6]), MVal 8, MTrue]) in
+  if x==([FALSE, CONST 7],[8,4,5,6],[MClos([],[1,2,3]), MTrue])
+    then "ACCESS 2 PASS " ++ show x
+  else "ACCESS 2 FAIL " ++ show x
 
 testInstAccess_1 :: String
-testInstAccess_1 = undefined --TODO
+testInstAccess_1 = let x = execState step ([ACCESS 0],[3,5,6,7],[]) in
+  if x==([],[3,5,6,7],[MVal 3])
+   then "ACCESS 1 PASS " ++ show x
+  else "ACCESS 1 FAIL " ++ show x
 
 testInstAccess_2 :: String
-testInstAccess_2 = undefined --TODO
+testInstAccess_2 = let x = execState step ([ACCESS 2, NIL],[3,5,6,7],[MNil]) in
+  if x==([NIL],[3,5,6,7],[MVal 6,MNil])
+   then "ACCESS 2 PASS " ++ show x
+  else "ACCESS 2 FAIL " ++ show x
 
 testInstRet_1 :: String
-testInstRet_1 = undefined --TODO
+testInstRet_1 = let x = execState step ([RET],[],[MNil, MClos([NIL],[0])]) in
+  if x==([NIL],[0],[MNil])
+    then "RET 1 PASS " ++ show x
+  else "RET 1 FAIL " ++ show x
 
 testInstRet_2 :: String
-testInstRet_2 = undefined --TODO
+testInstRet_2 = let x = execState step ([RET],[],[MVal 55, MClos([CONST 1, CONST 2],[3,4]), MVal 66]) in
+  if x==([CONST 1, CONST 2],[3,4],[MVal 55, MVal 66])
+    then "RET 2 PASS " ++ show x
+  else "RET 2 FAIL " ++ show x
 
 ---------------------------------------
 ---- Arithmetic Instruction Tests
@@ -162,7 +186,7 @@ testInstIf_3 = let x = execState step ([IF([CONST 1],[CONST 2])],[0],[MFalse]) i
 
 runAllListTests :: String
 runAllListTests = unlines ([""] ++ [">> LIST TESTS <<"] ++ [testInstNil_1] ++ [testInstNil_2]
-  ++ [testInstCons_1] ++ [testInstCons_2] ++ [testInstCase_1])
+  ++ [testInstCons_1] ++ [testInstCons_2] ++ [testInstCase_1] ++ [testInstCase_2])
 
 testInstNil_1 :: String
 testInstNil_1 = let x = execState instNil ([],[],[]) in
@@ -193,3 +217,9 @@ testInstCase_1 = let x = execState step ([CASE([CONST 1], [CONST 2])],[],[MCons(
   if x==([CONST 1],[3,4],[MClos([],[])])
     then "CASE 1 PASS " ++ show x
   else "CASE 1 FAIL " ++ show x
+
+testInstCase_2 :: String
+testInstCase_2 = let x = execState step ([CASE([CONST 1], [CONST 2])],[],[MNil]) in
+  if x==([CONST 2],[],[MClos([],[])])
+    then "CASE 2 PASS " ++ show x
+  else "CASE 2 FAIL " ++ show x

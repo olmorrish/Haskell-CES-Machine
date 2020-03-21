@@ -157,8 +157,8 @@ instClosure = do
 instApplication :: State CES Int
 instApplication = do
   state <- get
-  let (c, env, MClos (c', env'):MVal v:st) = state
-  put (c', v:env', MClos (c, env) : st)
+  let (c:cs, env, MClos (c', env'):MVal v:st) = state
+  put (c', v:env', MClos (cs, env) : st)
   return 0
 
 instAccess :: Int -> State CES Int
@@ -166,13 +166,13 @@ instAccess n = do
   state <- get
   let (c, env, st) = state
   let v = (env!!n) :: Int -- get the nth element of env and turn it from a String to an Int
-  put (c, env, MVal v:st)       --  then wrap that Int in a Val type constructor
+  put (popInst (c, env, MVal v:st))       --  then wrap that Int in a Val type constructor
   return 0
 
 instRet :: State CES Int
 instRet = do
   state <- get
-  let (c, env, v:MClos(c',env'):st) = state
+  let (c, env, v:MClos(c',env'):st) = state --this will crash if there is nothing before the MClos!!
   put (c', env', v:st)
   return 0
 
