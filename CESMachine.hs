@@ -34,9 +34,9 @@ popInst (c, env, st) = ([], env, st)
 --------------------------------------------------------------------------
 
 solveLambdaWithCES :: Lambda -> StackElement
-solveLambdaWithCES exp =
-  let dbExp = translateToDeBruijn exp ([], 0)
-   in evalState (runProgram (compile dbExp)) ([], [], [])
+solveLambdaWithCES lambda =
+  let prog = compile (translateToDeBruijn lambda ([], 0))
+   in evalState (runProgram prog) ([], [], [])
 
 --------------------------------------------------------------------------
 ---- Running the CES
@@ -66,7 +66,7 @@ step = do
   let (inst:c, env, st) = state
   case inst of
     CLO prg -> do       -- Main Instructions
-      instClosure
+      instClosure prg
       return 0
     APP -> do
       instApplication
@@ -111,15 +111,6 @@ step = do
       instCase progs
       return 0
 
-{-
-data SECDInstruction =
-  CLO Prog | APP | ACCESS Int | RET   -- Main Instructions
-  | CONST Int | ADD | SUB | MUL | LEQ -- Arithmetic
-  | TRUE | FALSE | IF (Prog, Prog)    -- Conditionals
-  | CONS | NIL | CASE (Prog, Prog)    -- List
-  deriving (Show, Eq)
--}
-
 --takes the initial instruction set and begins the machine
 initializeMachine :: Prog -> State CES Int
 initializeMachine c = do
@@ -147,11 +138,11 @@ inFinalState state =
 -------------------------------------
 -- Basic Instructions
 -------------------------------------
-instClosure :: State CES Int
-instClosure = do
+instClosure :: Prog -> State CES Int
+instClosure prog = do
   state <- get
   let (c, env, st) = state
-  put (c, env, MClos (c, env) : st)
+  put (popInst (c, env, MClos (prog, env) : st))
   return 0
 
 instApplication :: State CES Int
@@ -165,8 +156,8 @@ instAccess :: Int -> State CES Int
 instAccess n = do
   state <- get
   let (c, env, st) = state
-  let v = (env!!n) :: Int -- get the nth element of env and turn it from a String to an Int
-  put (popInst (c, env, MVal v:st))       --  then wrap that Int in a Val type constructor
+  let v = (env!!(n-1)) :: Int             -- get the nth element of env
+  put (popInst (c, env, MVal v:st))   -- then wrap that Int in a Val type constructor
   return 0
 
 instRet :: State CES Int

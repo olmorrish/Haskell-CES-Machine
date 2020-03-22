@@ -60,9 +60,9 @@ type DBStack = ([(String, Int)], Int)
 --  in the stack
 -- when an abstraction is entered, we increase the number
 translateToDeBruijn :: Lambda -> DBStack -> DLambda
-translateToDeBruijn (Var x)     (ps,c) = DVar (c - stackLookup x (ps, c))
+translateToDeBruijn (Var x) (ps,c)     = DVar (c - stackLookup x (ps, c))
 translateToDeBruijn (App t1 t2) st     = DApp (translateToDeBruijn t1 st) (translateToDeBruijn t2 st)
-translateToDeBruijn (Abs x t)   (ps,c) = DAbs (translateToDeBruijn t (push (x,c) (ps,c+1))) --push var to stack and increment counter IN THIS RECURSIVE CALL
+translateToDeBruijn (Abs x t) (ps,c)   = DAbs (translateToDeBruijn t (push (x,c) (ps,c+1))) --push var to stack and increment counter IN THIS RECURSIVE CALL
 translateToDeBruijn (Add t1 t2) st     = DAdd (translateToDeBruijn t1 st) (translateToDeBruijn t2 st)
 translateToDeBruijn (Sub t1 t2) st     = DSub (translateToDeBruijn t1 st) (translateToDeBruijn t2 st)
 translateToDeBruijn (Mul t1 t2) st     = DMul (translateToDeBruijn t1 st) (translateToDeBruijn t2 st)

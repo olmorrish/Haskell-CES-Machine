@@ -10,9 +10,9 @@ import Control.Monad.State.Lazy
 import Compiler
 import CESMachine
 
-runAllInstructionTests :: IO ()
-runAllInstructionTests =
-  let ret = (runAllMainTests ++ runAllArithmeticTests ++ runAllBoolTests ++ runAllListTests)
+runAllTests :: IO ()
+runAllTests =
+  let ret = (runAllMainTests ++ runAllArithmeticTests ++ runAllBoolTests ++ runAllListTests ++ runAllRuntimeTests)
     in putStrLn ret
 
 -------------------------------------
@@ -20,7 +20,7 @@ runAllInstructionTests =
 -------------------------------------
 
 runAllMainTests :: String
-runAllMainTests = unlines ([""] ++ [">> MAIN TESTS <<"] ++ [testInstClosure_1] ++ [testInstClosure_2]
+runAllMainTests = unlines ([""] ++ [">> MAIN INSTRUCTION TESTS <<"] ++ [testInstClosure_1] ++ [testInstClosure_2]
   ++ [testInstApp_1] ++ [testInstApp_2] ++ [testInstAccess_1] ++ [testInstAccess_2]
   ++ [testInstRet_1] ++ [testInstRet_2])
 
@@ -48,14 +48,15 @@ testInstApp_2 = let x = execState step ([APP],[1,2,3],[MClos([FALSE, CONST 7], [
     then "ACCESS 2 PASS " ++ show x
   else "ACCESS 2 FAIL " ++ show x
 
+--NOTE: as per the instructions, accessed are indexed starting at 1!
 testInstAccess_1 :: String
-testInstAccess_1 = let x = execState step ([ACCESS 0],[3,5,6,7],[]) in
+testInstAccess_1 = let x = execState step ([ACCESS 1],[3,5,6,7],[]) in
   if x==([],[3,5,6,7],[MVal 3])
    then "ACCESS 1 PASS " ++ show x
   else "ACCESS 1 FAIL " ++ show x
 
 testInstAccess_2 :: String
-testInstAccess_2 = let x = execState step ([ACCESS 2, NIL],[3,5,6,7],[MNil]) in
+testInstAccess_2 = let x = execState step ([ACCESS 3, NIL],[3,5,6,7],[MNil]) in
   if x==([NIL],[3,5,6,7],[MVal 6,MNil])
    then "ACCESS 2 PASS " ++ show x
   else "ACCESS 2 FAIL " ++ show x
@@ -77,7 +78,7 @@ testInstRet_2 = let x = execState step ([RET],[],[MVal 55, MClos([CONST 1, CONST
 ---------------------------------------
 
 runAllArithmeticTests :: String
-runAllArithmeticTests = unlines ([""] ++ [">> ARITHMETIC TESTS <<"] ++ [testInstConst_1] ++ [testInstConst_2]
+runAllArithmeticTests = unlines ([""] ++ [">> ARITHMETIC INSTRUCTION TESTS <<"] ++ [testInstConst_1] ++ [testInstConst_2]
   ++ [testInstAdd] ++ [testInstSub] ++ [testInstMul] ++ [testInstLeq_1] ++ [testInstLeq_2]
   ++ [testAddMul])
 
@@ -134,7 +135,7 @@ testAddMul = let x = execState step (execState step ([ADD, MUL],[],[MVal 2, MVal
 ---------------------------------------
 
 runAllBoolTests :: String
-runAllBoolTests = unlines ([""] ++ [">> BOOLEAN TESTS <<"] ++ [testInstTrue_1] ++ [testInstTrue_2]
+runAllBoolTests = unlines ([""] ++ [">> BOOLEAN INSTRUCTION TESTS <<"] ++ [testInstTrue_1] ++ [testInstTrue_2]
   ++ [testInstFalse_1] ++ [testInstFalse_2]
   ++ [testInstIf_1] ++ [testInstIf_2] ++ [testInstIf_3])
 
@@ -185,7 +186,7 @@ testInstIf_3 = let x = execState step ([IF([CONST 1],[CONST 2])],[0],[MFalse]) i
 ---------------------------------------
 
 runAllListTests :: String
-runAllListTests = unlines ([""] ++ [">> LIST TESTS <<"] ++ [testInstNil_1] ++ [testInstNil_2]
+runAllListTests = unlines ([""] ++ [">> LIST INSTRUCTION TESTS <<"] ++ [testInstNil_1] ++ [testInstNil_2]
   ++ [testInstCons_1] ++ [testInstCons_2] ++ [testInstCase_1] ++ [testInstCase_2])
 
 testInstNil_1 :: String
@@ -223,3 +224,71 @@ testInstCase_2 = let x = execState step ([CASE([CONST 1], [CONST 2])],[],[MNil])
   if x==([CONST 2],[],[MClos([],[])])
     then "CASE 2 PASS " ++ show x
   else "CASE 2 FAIL " ++ show x
+
+-------------------------------------
+-- Program Runtime Tests
+-------------------------------------
+
+runAllRuntimeTests :: String
+runAllRuntimeTests = unlines ([""] ++ [">> MULTIPLE INSTRUCTION PROGRAM TESTS <<"]
+  ++ [additionProgram] ++ [conditionalProgram_1] ++ [conditionalProgram_2])
+
+additionProgram :: String
+additionProgram = let prog = [CONST 3, CONST 4, ADD] in
+  let x = evalState (runProgram prog) ([],[],[]) in
+    if x == MVal 7
+      then "PROG_ADD PASS " ++ show x
+    else "PROG_ADD FAIL " ++ show x
+
+conditionalProgram_1 :: String
+conditionalProgram_1 = let prog = [TRUE, IF([CONST 1, CONST 2, ADD], [CONST 3, CONST 4, ADD])] in
+  let x = evalState (runProgram prog) ([],[],[]) in
+    if x== MVal 3
+      then "COND_ADD 1 PASS " ++ show x
+    else "COND_ADD 1 FAIL " ++ show x
+
+conditionalProgram_2 :: String
+conditionalProgram_2 = let prog = [FALSE, IF([CONST 1, CONST 2, ADD], [CONST 3, CONST 4, ADD])] in
+  let x = evalState (runProgram prog) ([],[],[]) in
+    if x== MVal 7
+      then "COND_ADD 2 PASS " ++ show x
+    else "COND_ADD 2 FAIL " ++ show x
+
+-- the SECD program for (\x.x+1)2 which was provided in the SECD document
+sampleProgram :: String
+sampleProgram = let prog = [CONST 2, CLO [CONST 1, ACCESS 0, ADD, RET], APP] in
+  let x = evalState (runProgram prog) ([],[],[]) in
+    if x== MVal 3
+      then "SAMPLE PASS " ++ show x
+    else "SAMPLE FAIL " ++ show x
+
+sampleProgramLambda :: String
+sampleProgramLambda = let prog = compile(translateToDeBruijn (App (Abs "x" (Add (Var "x") (Num 1))) (Num 2)) ([],0))  in
+  let x = evalState (runProgram prog) ([],[],[]) in
+    if x== MVal 3
+      then "SAMPLE_LAMBDA PASS" ++ show x
+    else "SAMPLE_LAMBDA FAIL " ++ show x
+
+-------------------------------------
+-- Program Runtime Tests
+-------------------------------------
+
+-- (\x.x+1)2 and the successor function
+example_1 :: String
+example_1 = show (solveLambdaWithCES (succ (Num 2)))
+  where succ = App (Abs "x" (Add (Var "x") (Num 1)))
+
+example_2 :: String
+
+
+-- (\xy.y(yx)) ie Church Numeral 2
+--example_2 :: String
+--example_2 = show (solveLambdaWithCES (Abs "x" (Abs "y" (App (Var "y") (App (Var "y") (Var "x"))))))
+
+
+
+-- (\x.xx)(\x.xx)
+exampleO :: String
+exampleO = show (solveLambdaWithCES (App (Abs "x" (App (Var "x") (Var "x")))
+                                          (Abs "x" (App (Var "x") (Var "x")))  ))
+
