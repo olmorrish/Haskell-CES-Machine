@@ -19,6 +19,8 @@ data StackElement =
   | MTrue | MFalse
   | MNil
   | MCons (StackElement,StackElement)
+  | MFixClos (Prog,[Int])
+  | MFixCClos (Prog,[Int])
   deriving (Eq, Show)
 
 -- State monad is run with the following type for the CES:
@@ -110,6 +112,12 @@ step = do
     CASE progs -> do
       instCase progs
       return 0
+    FIX prog -> do     -- Fixed Point:r
+      instFix prog
+      return 0
+    FIXC prog -> do
+      instFix prog
+      return 0
 
 --takes the initial instruction set and begins the machine
 initializeMachine :: Prog -> State CES Int
@@ -144,6 +152,20 @@ instClosure prog = do
   let (c, env, st) = state
   put (popInst (c, env, MClos (prog, env) : st))
   return 0
+
+--TODO this is an attempt at a App that includes fixed points
+--instApplication :: State CES Int
+--instApplication = do
+--  state <- get
+--  let (c:cs, env, s1:s2:st) = state
+--  case [s1,s2] of
+--    [MClos (c',env') , MVal v] -> do
+--      put (c', v:env', MClos (cs, env) : st)
+--      return 0
+--    [MFixClos(c',env') , MVal v] -> do
+--      put (c', v:MFixClos(c', env'):env', MFixClos (cs, env) : st)
+--      return 0
+--    otherwise -> return 0
 
 instApplication :: State CES Int
 instApplication = do
@@ -265,22 +287,17 @@ instCase (c1,c2) = do
     return 0
   else do
     let MCons(MVal v1, MVal v2) = toEval
-    put (c1, v1:v2:env, MClos(cs,env):st) --TODO ensure show works here; going from StackElement -> String
+    put (c1, v1:v2:env, MClos(cs,env):st)
     return 0
 
 ---------------------------------------
----- Support Functions
+---- Fixed Point Instructions
 ---------------------------------------
 
----- Ex: "(aaaa, bbbb)" --> ("aaaa", "bbbb")
---readPair :: String -> (String, String)
---readPair s =
---  let i = elemIndex ',' s in
---   case i of
---     Just i    -> (take (i-1) (cutBrackets s) , drop i (cutBrackets s))
---     otherwise -> ("","")
---
---cutBrackets :: String -> String
---cutBrackets [] = []
---cutBrackets [x] = []
---cutBrackets xs = init (tail xs)
+--This works the same for both Fix and FixC
+instFix :: Prog -> State CES Int
+instFix prog = do
+  state <- get
+  let (c:cs, env, st) = state
+  put (cs, env, MFixClos(prog, env):st)
+  return 0

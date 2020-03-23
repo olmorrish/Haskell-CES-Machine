@@ -28,6 +28,7 @@ data Lambda
   | Nil
   | Cons Lambda Lambda
   | Case Lambda Lambda Lambda -- picks between 2 & 3 based on if the first Lambda is Nil or Cons
+  | Fix Lambda
   deriving (Show, Eq)
 
 -- switching to debruijn notation
@@ -49,6 +50,7 @@ data DLambda
   | DNil
   | DCons DLambda DLambda
   | DCase DLambda DLambda DLambda -- picks between 2 & 3 based on if the first Lambda is Nil or Cons
+  | DFix DLambda
   deriving (Show, Eq)
 
 
@@ -74,14 +76,7 @@ translateToDeBruijn LFalse st          = DFalse
 translateToDeBruijn Nil st             = DNil
 translateToDeBruijn (Cons t1 t2) st    = DCons (translateToDeBruijn t1 st) (translateToDeBruijn t2 st)
 translateToDeBruijn (Case t1 t2 t3) st = DCase (translateToDeBruijn t1 st) (translateToDeBruijn t2 st) (translateToDeBruijn t3 st)
-
---EXAMPLE IN GHCi:
--- translateToDeBruijn (Abs "x" ( Abs "y" (App (Var "x") (Var "y")))) ([],0)
-   --DAbs (DAbs (DApp (DVar 2) (DVar 1)))
-
---EXAMPLE 2:
--- translateToDeBruijn (Abs "x" ( Abs "y" (Add (Num 1) (Num 4)))) ([],0)
-   --DAbs (DAbs (DAdd (DNum 1) (DNum 4)))
+translateToDeBruijn (Fix t) st         = DFix (translateToDeBruijn t st)
 
 stackLookup :: String -> DBStack -> Int
 stackLookup x ([], c) = -1  -- TODO FIGURE THIS OUT; IS A BUG -> What is db notation when a var has no binding?
@@ -107,6 +102,7 @@ data SECDInstruction =
   | CONST Int | ADD | SUB | MUL | LEQ -- Arithmetic
   | TRUE | FALSE | IF (Prog, Prog)    -- Conditionals
   | CONS | NIL | CASE (Prog, Prog)    -- List
+  | FIX Prog | FIXC Prog              -- Fixed Point
   deriving (Show, Eq)
 
 --type VariableContext = [Int]
@@ -117,17 +113,20 @@ data SECDInstruction =
 
 --according to page 16
 compile :: DLambda -> Prog
-compile (DAbs t)      = [CLO(compile t ++ [RET])]
-compile (DApp m n)    = compile n ++ compile m ++ [APP]
-compile (DVar x)      = [ACCESS x]                         --some steps left out; presumably DB notation simplifies the procedure
-compile (DAdd x y)    = compile y ++ compile x ++ [ADD]
-compile (DSub x y)    = compile y ++ compile x ++ [SUB]   -- SUB is not in the notes, but is simple so was still included
-compile (DMul x y)    = compile y ++ compile x ++ [MUL]
-compile (DLeq x y)    = compile y ++ compile x ++ [LEQ]
-compile (DNum n)      = [CONST n]
-compile DTrue         = [TRUE]
-compile DFalse        = [FALSE]
-compile (DCond t x y) = compile t ++ [IF(compile x ++ [RET], compile y ++ [RET])]     --IF and CASE both carry two alt program paths as a (Prog, Prog) tuple
-compile DNil          = [NIL]
-compile (DCons x y)   = compile y ++ compile x ++ [CONS]
-compile (DCase t x y) = compile t ++ [CASE(compile x ++ [RET], compile y ++ [RET])]
+compile (DAbs t)         = [CLO(compile t ++ [RET])]
+compile (DApp m n)       = compile n ++ compile m ++ [APP]
+compile (DVar x)         = [ACCESS x]                         --some steps left out; presumably DB notation simplifies the procedure
+compile (DAdd x y)       = compile y ++ compile x ++ [ADD]
+compile (DSub x y)       = compile y ++ compile x ++ [SUB]   -- SUB is not in the notes, but is simple so was still included
+compile (DMul x y)       = compile y ++ compile x ++ [MUL]
+compile (DLeq x y)       = compile y ++ compile x ++ [LEQ]
+compile (DNum n)         = [CONST n]
+compile DTrue            = [TRUE]
+compile DFalse           = [FALSE]
+compile (DCond t x y)    = compile t ++ [IF(compile x ++ [RET], compile y ++ [RET])]     --IF and CASE both carry two alt program paths as a (Prog, Prog) tuple
+compile DNil             = [NIL]
+compile (DCons x y)      = compile y ++ compile x ++ [CONS]
+compile (DCase t x y)    = compile t ++ [CASE(compile x ++ [RET], compile y ++ [RET])]
+compile (DFix t)  = case t of
+  DAbs (DAbs (DAbs n)) -> [FIX(compile n ++ [RET])] --TODO how can this work when variables are anonymous?
+  DAbs (DAbs n)        -> [FIXC(compile n ++ [RET])]

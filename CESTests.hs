@@ -269,26 +269,5 @@ sampleProgramLambda = let prog = compile(translateToDeBruijn (App (Abs "x" (Add 
       then "SAMPLE_LAMBDA PASS" ++ show x
     else "SAMPLE_LAMBDA FAIL " ++ show x
 
--------------------------------------
--- Program Runtime Tests
--------------------------------------
 
--- (\x.x+1)2 and the successor function
-example_1 :: String
-example_1 = show (solveLambdaWithCES (succ (Num 2)))
-  where succ = App (Abs "x" (Add (Var "x") (Num 1)))
-
-example_2 :: String
-
-
--- (\xy.y(yx)) ie Church Numeral 2
---example_2 :: String
---example_2 = show (solveLambdaWithCES (Abs "x" (Abs "y" (App (Var "y") (App (Var "y") (Var "x"))))))
-
-
-
--- (\x.xx)(\x.xx)
-exampleO :: String
-exampleO = show (solveLambdaWithCES (App (Abs "x" (App (Var "x") (Var "x")))
-                                          (Abs "x" (App (Var "x") (Var "x")))  ))
 
